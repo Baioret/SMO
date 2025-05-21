@@ -69,7 +69,7 @@ public class SmoSimulator {
 
         queue.add(client);
         eventLog.add(new String[] {
-                "Client " + NA + " came",
+                "Клиент " + NA + " пришел",
                 String.format("%.5f", t),
                 String.valueOf(n)
         });
@@ -104,7 +104,7 @@ public class SmoSimulator {
 
         if (client != null) {
             eventLog.add(new String[] {
-                    "Client " + ND + " left",
+                    "Клиент " + ND + " ушел",
                     String.format("%.5f", client.departureTime),
                     String.valueOf(n)
             });
@@ -131,7 +131,7 @@ public class SmoSimulator {
             tD = client.departureTime;
 
             eventLog.add(new String[] {
-                    "Client " + ND + " left",
+                    "Клиент " + ND + " ушел",
                     String.format("%.5f", client.departureTime),
                     String.valueOf(n)
             });
@@ -139,7 +139,7 @@ public class SmoSimulator {
     }
 
     private void verifyLambdaRatio() {
-        System.out.println("Let's be sure that 0 <= λ(t)/λ_max <= 1");
+        System.out.println("Убедимся, что все 0 <= λ(t)/λ_max <= 1");
         boolean allOk = true;
         for (double t = start; t <= finish; t += 0.5) {
             double lambdaValue = IntensityFunction.lambda(t);
@@ -147,11 +147,11 @@ public class SmoSimulator {
 
             if (ratio < 0 || ratio > 1) {
                 allOk = false;
-                System.out.printf("❌ Invalid at t = %.2f: λ(t)/λ_max = %.3f\n", t, ratio);
+                System.out.printf("❌ Неверно на t = %.2f: λ(t)/λ_max = %.3f\n", t, ratio);
             }
         }
         if (allOk) {
-            System.out.println("✅ All values of λ(t)/λ_max are within [0, 1]");
+            System.out.println("✅ Все значения λ(t)/λ_max принадлежат [0, 1]");
         }
     }
 
@@ -164,18 +164,18 @@ public class SmoSimulator {
         double avgQ = queueSizes.stream().mapToInt(i -> i).average().orElse(0.0);
         double ro = ((finish - start) - idleTime) / (finish - start);
 
-        System.out.println("Statistics:");
-        System.out.println("The total number of clients who came: " + clients.size());
-        System.out.printf("Delay time: %.5f\n", tP);
-        System.out.printf("Average time of clients in the queue: %.5f\n", avgW);
-        System.out.printf("Average queue length: %.2f\n", avgQ);
-        System.out.printf("Average client time in the system: %.5f\n", avgS);
-        System.out.printf("Device occupancy rate: %.5f\n\n", ro);
+        System.out.println("---СТАТИСТИКА---");
+        System.out.println("Всего пришедших клиентов: " + clients.size());
+        System.out.printf("Задержка последнего клиента: %.5f\n", tP);
+        System.out.printf("Среднее время ожидания: %.5f\n", avgW);
+        System.out.printf("Средняя длина очереди: %.2f\n", avgQ);
+        System.out.printf("Среднее время клиента в системе: %.5f\n", avgS);
+        System.out.printf("Оценка занятости устройства: %.5f\n\n", ro);
         verifyLambdaRatio();
     }
 
     private void printEventLog() {
-        printTable(new String[] { "Event", "Time", "Clients in system" }, eventLog);
+        printTable(new String[] { "Событие", "Время", "Очередь" }, eventLog);
     }
 
     private void printClientStatsTable() {
@@ -194,8 +194,8 @@ public class SmoSimulator {
         }
 
         printTable(new String[] {
-                "#", "Time of arrival", "Time of starting the service",
-                "Time of waiting", "Time of service", "Time of leaving", "Time in the system"
+                "#", "Время прихода", "Время начала обслуживания",
+                "Время ожидания", "Время обслуживания", "Время ухода", "Время в системе"
         }, rows);
     }
 
