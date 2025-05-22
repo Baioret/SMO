@@ -1,7 +1,14 @@
 package org.baioret;
 
 import java.util.*;
+import org.jfree.chart.ChartFactory;
+import org.jfree.chart.ChartPanel;
+import org.jfree.chart.JFreeChart;
+import org.jfree.chart.plot.PlotOrientation;
+import org.jfree.data.xy.XYSeries;
+import org.jfree.data.xy.XYSeriesCollection;
 
+import javax.swing.*;
 /**
  * Класс SmoSimulator моделирует работу СМО с одним устройством
  * с помощью генерации событий прихода и ухода клиентов. Использует нестационарный поток и
@@ -10,7 +17,7 @@ import java.util.*;
 public class SmoSimulator {
 
     private final boolean testMode = false; // переключатель
-    private final int maxClients = 6;     // максимум клиентов в режиме теста
+    private final int maxClients = 6;       // максимум клиентов в тестовом режиме
 
     // Временные границы моделирования
     private final double start;
@@ -23,10 +30,11 @@ public class SmoSimulator {
     private final List<Client> clients = new ArrayList<>();
     private final List<Integer> queueSizes = new ArrayList<>();
     private final List<String[]> eventLog = new ArrayList<>();
+    private final List<Double> queueTimes = new ArrayList<>(); // для графика
 
     // Генераторы событий
     private final PoissonGenerator poissonGenerator;
-    private final Distribution serviceDistribution;
+    private final ExponentialGenerator exponentialGenerator;
 
     // Текущие времена событий и счётчики
     /*
@@ -55,7 +63,7 @@ public class SmoSimulator {
         this.finish = finish;
         this.lambda = lambda;
         this.poissonGenerator = new PoissonGenerator(lambda);
-        this.serviceDistribution = new Distribution(serviceLambda);
+        this.exponentialGenerator = new ExponentialGenerator(serviceLambda);
     }
 
     /**
@@ -80,7 +88,7 @@ public class SmoSimulator {
             else if (Math.min(tA, tD) > finish && n > 0) {
                 handlePostCloseDeparture();
             }
-            // Завершение моделирования — считаем задержку
+            // Завершение работы системы — считаем задержку
             else {
                 double lastDepartureTime = clients.stream()
                         .mapToDouble(c -> c.departureTime)
@@ -100,6 +108,7 @@ public class SmoSimulator {
         NA++;
         n++;
         queueSizes.add(n);
+        queueTimes.add(t);
 
         // Создаём нового клиента
         Client client = new Client();
@@ -112,7 +121,7 @@ public class SmoSimulator {
         // Если клиент обслуживается сразу
         if (n == 1) {
             client.serviceStartTime = t;
-            double serviceTime = serviceDistribution.generateServiceTime();
+            double serviceTime = exponentialGenerator.generateServiceTime();
             client.departureTime = t + serviceTime;
             tD = client.departureTime;
         }
@@ -135,6 +144,7 @@ public class SmoSimulator {
         ND++;
         n--;
         queueSizes.add(n);
+        queueTimes.add(t);
 
         // Обработка завершившего обслуживание клиента
         Client client = queue.poll();
@@ -154,7 +164,7 @@ public class SmoSimulator {
             Client next = queue.peek();
             if (next != null) {
                 next.serviceStartTime = t;
-                double serviceTime = serviceDistribution.generateServiceTime();
+                double serviceTime = exponentialGenerator.generateServiceTime();
                 next.departureTime = t + serviceTime;
                 tD = next.departureTime;
             }
@@ -188,7 +198,7 @@ public class SmoSimulator {
             }
 
             client.serviceStartTime = t;
-            double serviceTime = serviceDistribution.generateServiceTime();
+            double serviceTime = exponentialGenerator.generateServiceTime();
             client.departureTime = t + serviceTime;
             tD = client.departureTime;
 
@@ -235,10 +245,10 @@ public class SmoSimulator {
         System.out.println("---СТАТИСТИКИ---");
         System.out.println("Всего пришедших клиентов: " + clients.size());
         System.out.printf("Задержка последнего клиента: %.5f\n", tP);
-        System.out.printf("Среднее время ожидания: %.5f\n", avgW);
+        System.out.printf("Среднее время клиента в очереди: %.5f\n", avgW);
         System.out.printf("Средняя длина очереди: %.2f\n", avgQ);
         System.out.printf("Среднее время клиента в системе: %.5f\n", avgS);
-        System.out.printf("Оценка занятости устройства: %.5f\n\n", ro);
+        System.out.printf("Коэффициент занятости устройства: %.5f\n\n", ro);
 
         // Проверка отношения λ(t)/λ_max
         verifyLambdaRatio();
@@ -296,5 +306,30 @@ public class SmoSimulator {
             System.out.printf(format, (Object[]) row);
         }
         System.out.println(separator);
+    }
+
+    public void showQueueChart() {
+        XYSeries series = new XYSeries("Клиенты в системе");
+        for (int i = 0; i < queueTimes.size(); i++) {
+            series.add(queueTimes.get(i), queueSizes.get(i));
+        }
+        XYSeriesCollection dataset = new XYSeriesCollection(series);
+
+        JFreeChart chart = ChartFactory.createXYLineChart(
+                "Количество клиентов в системе",
+                "Время",
+                "Клиенты",
+                dataset,
+                PlotOrientation.VERTICAL,
+                false, true, false
+        );
+
+        ChartPanel chartPanel = new ChartPanel(chart);
+        JFrame frame = new JFrame("График очереди");
+        frame.setContentPane(chartPanel);
+        frame.setSize(800, 600);
+        frame.setLocationRelativeTo(null);
+        frame.setDefaultCloseOperation(WindowConstants.DISPOSE_ON_CLOSE);
+        frame.setVisible(true);
     }
 }

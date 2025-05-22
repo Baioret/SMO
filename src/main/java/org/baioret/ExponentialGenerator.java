@@ -3,10 +3,10 @@ package org.baioret;
 /**
  * Генератор времени обслуживания по экспоненциальному распределению
  */
-public class Distribution {
+public class ExponentialGenerator {
     private final double lambda;
 
-    public Distribution(double lambda) {
+    public ExponentialGenerator(double lambda) {
         this.lambda = lambda;
     }
 

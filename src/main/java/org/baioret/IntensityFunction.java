@@ -8,7 +8,7 @@ public class IntensityFunction {
     /**
      * Функция интенсивности прибытия клиентов в зависимости от времени
      * @param t время
-     * @return интенсивность потока в указанное время
+     * @return интенсивность потока в момент времени t
      */
     public static double lambda(double t) {
         if (t >= 7 && t < 9) return 1.4 * t - 9.2;
