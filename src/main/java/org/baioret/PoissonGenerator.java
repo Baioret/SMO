@@ -1,5 +1,8 @@
 package org.baioret;
 
+/**
+ * Генератор прибытия клиентов по неоднородному Пуассоновскому процессу
+ */
 public class PoissonGenerator {
     private final double lambdaMax;
 
@@ -7,6 +10,11 @@ public class PoissonGenerator {
         this.lambdaMax = lambdaMax;
     }
 
+    /**
+     * Генерация следующего времени прибытия клиента
+     * @param currentTime текущее модельное время
+     * @return время следующего события
+     */
     public double generateNextArrival(double currentTime) {
         double t = currentTime;
         while (true) {

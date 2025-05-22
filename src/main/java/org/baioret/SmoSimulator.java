@@ -2,22 +2,54 @@ package org.baioret;
 
 import java.util.*;
 
+/**
+ * Класс SmoSimulator моделирует работу СМО с одним устройством
+ * с помощью генерации событий прихода и ухода клиентов. Использует нестационарный поток и
+ * экспоненциальное распределение времени обслуживания.
+ */
 public class SmoSimulator {
+
+    private final boolean testMode = false; // переключатель
+    private final int maxClients = 6;     // максимум клиентов в режиме теста
+
+    // Временные границы моделирования
     private final double start;
     private final double finish;
+
+    // Максимальная интенсивность входящего потока λ(t) <= lambda
     private final double lambda;
 
+    // Список клиентов и логирование
     private final List<Client> clients = new ArrayList<>();
     private final List<Integer> queueSizes = new ArrayList<>();
     private final List<String[]> eventLog = new ArrayList<>();
 
+    // Генераторы событий
     private final PoissonGenerator poissonGenerator;
     private final Distribution serviceDistribution;
 
-    private double tA, tD, t, tP, idleTime;
-    private int n, NA, ND;
+    // Текущие времена событий и счётчики
+    /*
+     * Временные переменные:
+     * tA — время следующего прихода клиента
+     * tD — время следующего ухода клиента
+     * t — текущее модельное время
+     * tP — задержка (время, на которое последний клиент задерживает систему после закрытия)
+     * idleTime — накопленное время простоя устройства (когда оно не было занято обслуживанием)
+     */
+    private double tA, tD, t, tP, idleTime; //
+    private int n, NA, ND; // n — клиентов в системе, NA — пришло, ND — ушло
+
+    // Очередь обслуживаемых клиентов
     private final PriorityQueue<Client> queue = new PriorityQueue<>(Comparator.comparingDouble(c -> c.arrivalTime));
 
+    /**
+     * Конструктор симулятора
+     * @param start время начала моделирования
+     * @param finish время окончания (закрытие системы)
+     * @param lambda максимальная интенсивность λ(t)
+     * @param serviceLambda интенсивность обслуживания (μ)
+     */
     public SmoSimulator(double start, double finish, double lambda, double serviceLambda) {
         this.start = start;
         this.finish = finish;
@@ -26,19 +58,30 @@ public class SmoSimulator {
         this.serviceDistribution = new Distribution(serviceLambda);
     }
 
+    /**
+     * Основной метод запуска моделирования.
+     * Управляет обработкой событий до завершения работы системы.
+     */
     public void run() {
         t = start;
         tA = poissonGenerator.generateNextArrival(t);
         tD = Double.POSITIVE_INFINITY;
 
         while (true) {
-            if (tA <= tD && tA <= finish) {
+            // Приход клиента
+            if (tA <= tD && tA <= finish && (!testMode || NA < maxClients)) {
                 handleArrival();
-            } else if (tD <= tA && tD <= finish) {
+            }
+            // Уход клиента
+            else if (tD <= tA && tD <= finish) {
                 handleDeparture();
-            } else if (Math.min(tA, tD) > finish && n > 0) {
+            }
+            // После закрытия — обслуживаем оставшихся
+            else if (Math.min(tA, tD) > finish && n > 0) {
                 handlePostCloseDeparture();
-            } else {
+            }
+            // Завершение моделирования — считаем задержку
+            else {
                 double lastDepartureTime = clients.stream()
                         .mapToDouble(c -> c.departureTime)
                         .max()
@@ -49,17 +92,24 @@ public class SmoSimulator {
         }
     }
 
+    /**
+     * Обработка события прихода клиента
+     */
     private void handleArrival() {
         t = tA;
         NA++;
         n++;
         queueSizes.add(n);
 
+        // Создаём нового клиента
         Client client = new Client();
         client.arrivalTime = t;
         clients.add(client);
+
+        // Генерируем следующее время прихода
         tA = poissonGenerator.generateNextArrival(t);
 
+        // Если клиент обслуживается сразу
         if (n == 1) {
             client.serviceStartTime = t;
             double serviceTime = serviceDistribution.generateServiceTime();
@@ -68,6 +118,8 @@ public class SmoSimulator {
         }
 
         queue.add(client);
+
+        // Логируем событие
         eventLog.add(new String[] {
                 "Клиент " + NA + " пришел",
                 String.format("%.5f", t),
@@ -75,14 +127,19 @@ public class SmoSimulator {
         });
     }
 
+    /**
+     * Обработка события ухода клиента
+     */
     private void handleDeparture() {
         t = tD;
         ND++;
         n--;
         queueSizes.add(n);
 
+        // Обработка завершившего обслуживание клиента
         Client client = queue.poll();
         if (client != null) {
+            // Учёт времени простоя
             if (client.serviceStartTime == client.arrivalTime && ND == 1) {
                 idleTime += client.arrivalTime - start;
             } else if (client.getWaitingTime() == 0 && ND > 1) {
@@ -90,6 +147,7 @@ public class SmoSimulator {
             }
         }
 
+        // Назначаем обслуживание следующему
         if (n == 0) {
             tD = Double.POSITIVE_INFINITY;
         } else {
@@ -111,6 +169,9 @@ public class SmoSimulator {
         }
     }
 
+    /**
+     * Обслуживание оставшихся клиентов после закрытия
+     */
     private void handlePostCloseDeparture() {
         t = tD;
         ND++;
@@ -119,6 +180,7 @@ public class SmoSimulator {
 
         Client client = queue.poll();
         if (client != null) {
+            // Учёт времени простоя после закрытия
             if (client.getWaitingTime() == 0 && ND == 1) {
                 idleTime += client.arrivalTime - start;
             } else if (client.getWaitingTime() == 0 && ND > 1) {
@@ -138,6 +200,9 @@ public class SmoSimulator {
         }
     }
 
+    /**
+     * Проверка допустимости значений λ(t)/λ_max ∈ [0, 1]
+     */
     private void verifyLambdaRatio() {
         System.out.println("Убедимся, что все 0 <= λ(t)/λ_max <= 1");
         boolean allOk = true;
@@ -155,6 +220,9 @@ public class SmoSimulator {
         }
     }
 
+    /**
+     * Вывод статистики и логов событий
+     */
     public void printStatistics() {
         printEventLog();
         printClientStatsTable();
@@ -164,13 +232,15 @@ public class SmoSimulator {
         double avgQ = queueSizes.stream().mapToInt(i -> i).average().orElse(0.0);
         double ro = ((finish - start) - idleTime) / (finish - start);
 
-        System.out.println("---СТАТИСТИКА---");
+        System.out.println("---СТАТИСТИКИ---");
         System.out.println("Всего пришедших клиентов: " + clients.size());
         System.out.printf("Задержка последнего клиента: %.5f\n", tP);
         System.out.printf("Среднее время ожидания: %.5f\n", avgW);
         System.out.printf("Средняя длина очереди: %.2f\n", avgQ);
         System.out.printf("Среднее время клиента в системе: %.5f\n", avgS);
         System.out.printf("Оценка занятости устройства: %.5f\n\n", ro);
+
+        // Проверка отношения λ(t)/λ_max
         verifyLambdaRatio();
     }
 
