@@ -6,7 +6,7 @@ package org.baioret;
 public class Uniform {
 
     /**
-     * Возвращает случайное число из диапазона [min, max) по равномерному распределению
+     * Возвращает случайное число из диапазона [a, b) по равномерному распределению
      */
     public static double generate(double a, double b) {
         return Math.random() * (b - a) + a;

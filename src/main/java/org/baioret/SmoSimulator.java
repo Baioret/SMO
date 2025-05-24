@@ -30,7 +30,9 @@ public class SmoSimulator {
     private final List<Client> clients = new ArrayList<>();
     private final List<Integer> queueSizes = new ArrayList<>();
     private final List<String[]> eventLog = new ArrayList<>();
-    private final List<Double> queueTimes = new ArrayList<>(); // для графика
+
+    // для графика
+    private final List<Double> queueTimes = new ArrayList<>();
 
     // Генераторы событий
     private final PoissonGenerator poissonGenerator;
